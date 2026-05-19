@@ -1,9 +1,9 @@
 const API_URL = "http://localhost:4000";
 
 export interface ExecutionResult {
-  executionId: string;
-  roomId: string;
-  language: string;
+  executionId?: string;
+  roomId?: string;
+  language?: string;
   status: "success" | "error" | "timeout";
   stdout: string;
   stderr: string;

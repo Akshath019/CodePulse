@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Editor from "./components/Editor";
 import OutputPanel from "./components/OutputPanel";
-
+import { submitCode } from "./lib/api";
 
 const LANGUAGES = ["python", "javascript", "java"];
 
@@ -62,21 +62,28 @@ export default function App() {
           </select>
 
           <button
-            onClick={() => {
+            onClick={async () => {
               setIsRunning(true);
               setResult(null);
-              // Fake execution for now — backend will replace this
-              setTimeout(() => {
-                setResult({
-                  status: "success",
-                  stdout:
-                    "Hello from CodePulse!\nLine 0\nLine 1\nLine 2\nLine 3\nLine 4",
-                  stderr: "",
-                  exitCode: 0,
-                  durationMs: 234,
+
+              try {
+                const data = await submitCode({
+                  roomId: "local-dev-room",
+                  code,
+                  language,
                 });
+                setResult(data);
+              } catch (err: any) {
+                setResult({
+                  status: "error",
+                  stdout: "",
+                  stderr: err.message || "Failed to execute code",
+                  exitCode: -1,
+                  durationMs: 0,
+                });
+              } finally {
                 setIsRunning(false);
-              }, 1500);
+              }
             }}
             disabled={isRunning}
             className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${
