@@ -58,7 +58,7 @@ flowchart LR
     U2[👤 User 2<br/>Browser] --> FE
 
     FE -->|REST POST /execute| API[Express API]
-    FE <-->|WebSocket<br/>live sync + results| API
+    FE <-->|WebSocket live sync + results| API
 
     API -->|Save execution| DB[(PostgreSQL)]
     API -->|Publish job| KAFKA{{Kafka code.jobs}}
