@@ -52,32 +52,26 @@ I wanted to learn how real distributed systems work — the kind Netflix, Uber, 
 
 ## Architecture
 
-\`\`\`mermaid
+```mermaid
 flowchart LR
-    U1[👤 User 1<br/>Browser] --> FE[React + Monaco Editor]
-    U2[👤 User 2<br/>Browser] --> FE
-
+    U1[User 1 Browser] --> FE[React + Monaco Editor]
+    U2[User 2 Browser] --> FE
     FE -->|REST POST /execute| API[Express API]
     FE <-->|WebSocket live sync + results| API
-
     API -->|Save execution| DB[(PostgreSQL)]
     API -->|Publish job| KAFKA{{Kafka code.jobs}}
-
     KAFKA -->|Consume job| WORKER[Worker Node.js]
-    WORKER -->|Spawn container| DOCKER[🐳 Docker<br/>Python / JS / Java]
+    WORKER -->|Spawn container| DOCKER[Docker Python/JS/Java]
     DOCKER -->|stdout + stderr| WORKER
-
     WORKER -->|Publish result| KAFKA2{{Kafka code.results}}
     KAFKA2 -->|Consume result| API
     API -->|UPDATE row| DB
     API -->|emit via WebSocket| FE
-
     style KAFKA fill:#ff6b35,color:#fff
     style KAFKA2 fill:#ff6b35,color:#fff
     style DOCKER fill:#2496ed,color:#fff
     style DB fill:#336791,color:#fff
-\`\`\`
-
+```
 ---
 
 ## Running Locally
