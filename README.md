@@ -1,6 +1,8 @@
 # ⚡ CodePulse
 
-Real-time code execution and collaboration platform.
+> **Real-time collaborative code execution platform.** Write code together, run it in isolated Docker sandboxes, watch output stream back live.
+
+---
 
 ## Tech Stack
 
@@ -14,10 +16,6 @@ Real-time code execution and collaboration platform.
 ## Status
 
 🚧 Currently building — see progress in commits.
-
-# ⚡ CodePulse
-
-> **Real-time collaborative code execution platform.** Write code together, run it in isolated Docker sandboxes, watch output stream back live.
 
 ---
 
@@ -54,7 +52,7 @@ I wanted to learn how real distributed systems work — the kind Netflix, Uber, 
 
 ## Architecture
 
-```mermaid
+\`\`\`mermaid
 flowchart LR
     U1[👤 User 1<br/>Browser] --> FE[React + Monaco Editor]
     U2[👤 User 2<br/>Browser] --> FE
@@ -63,13 +61,13 @@ flowchart LR
     FE <-->|WebSocket<br/>live sync + results| API
 
     API -->|Save execution| DB[(PostgreSQL)]
-    API -->|Publish job| KAFKA{{Kafka<br/>code.jobs}}
+    API -->|Publish job| KAFKA{{Kafka code.jobs}}
 
     KAFKA -->|Consume job| WORKER[Worker Node.js]
     WORKER -->|Spawn container| DOCKER[🐳 Docker<br/>Python / JS / Java]
     DOCKER -->|stdout + stderr| WORKER
 
-    WORKER -->|Publish result| KAFKA2{{Kafka<br/>code.results}}
+    WORKER -->|Publish result| KAFKA2{{Kafka code.results}}
     KAFKA2 -->|Consume result| API
     API -->|UPDATE row| DB
     API -->|emit via WebSocket| FE
@@ -78,9 +76,16 @@ flowchart LR
     style KAFKA2 fill:#ff6b35,color:#fff
     style DOCKER fill:#2496ed,color:#fff
     style DB fill:#336791,color:#fff
+\`\`\`
 
+---
 
-To run
-docker compose up -d
+## Running Locally
 
-```
+\`\`\`bash
+# Start everything
+docker compose up --build
+
+# Stop everything
+docker compose down
+\`\`\`
