@@ -2,7 +2,9 @@ import Docker from "dockerode";
 
 // Windows uses named pipes for Docker
 // On Linux/Mac, use: { socketPath: '/var/run/docker.sock' }
-const docker = new Docker({ socketPath: "//./pipe/docker_engine" });
+const docker = new Docker({
+  socketPath: process.env.DOCKER_SOCKET || "//./pipe/docker_engine",
+});
 
 interface LanguageConfig {
   image: string;

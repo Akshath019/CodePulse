@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSocket } from "./hooks/useSocket";
 import Editor from "./components/Editor";
 import OutputPanel from "./components/OutputPanel";
@@ -27,14 +26,43 @@ for (let i = 0; i < 5; i++) {
 };
 
 export default function App() {
+  // ── Room ID from URL or generated ──────────────────────
+  const [roomId] = useState<string>(() => {
+    const urlRoom = new URLSearchParams(window.location.search).get("room");
+    if (urlRoom) return urlRoom;
+
+    // Generate a short random ID (e.g. "aB3xK9pQ")
+    const newRoom = Math.random().toString(36).substring(2, 10);
+    window.history.replaceState(null, "", `?room=${newRoom}`);
+    return newRoom;
+  });
+
   const [language, setLanguage] = useState("python");
   const [code, setCode] = useState(DEFAULT_CODE["python"]);
   const [result, setResult] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
-  const ROOM_ID = "local-dev-room";
-  const { socket, connected } = useSocket(ROOM_ID);
+  const [copied, setCopied] = useState(false);
+  // Prevents re-broadcasting when we receive an incoming update
+  const isRemoteUpdate = useRef(false);
+  // ── Listen for incoming code changes from collaborators ──
+  const { socket, connected } = useSocket(roomId);
 
-  // Listen for execution results via WebSocket
+  // ── Listen for incoming code changes from collaborators ──
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("code:updated", ({ code: newCode, language: newLang }) => {
+      isRemoteUpdate.current = true;
+      setCode(newCode);
+      setLanguage(newLang);
+    });
+
+    return () => {
+      socket.off("code:updated");
+    };
+  }, [socket]);
+
+  // ── Listen for execution results via WebSocket ─────────
   useEffect(() => {
     if (!socket) return;
 
@@ -55,21 +83,36 @@ export default function App() {
     };
   }, [socket]);
 
+  // ── Copy shareable URL to clipboard ────────────────────
+  const handleShare = async () => {
+    await navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="h-screen flex flex-col bg-[#0d0d0d] text-white">
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between px-5 py-3 bg-[#111111] border-b border-white/10">
-        {/* Left — Brand */}
+        {/* Left — Brand + Room */}
         <div className="flex items-center gap-3">
           <span className="text-green-400 font-bold text-xl tracking-tight">
-            CodePulse
+            ⚡ CodePulse
           </span>
-          <span className="text-xs text-white/50 bg-white/5 px-2 py-1 rounded font-mono flex items-center gap-2">
+
+          <button
+            onClick={handleShare}
+            title="Click to copy shareable link"
+            className="text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded font-mono flex items-center gap-2 transition-colors cursor-pointer"
+          >
             <span
-              className={`inline-block w-1.5 h-1.5 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`}
+              className={`inline-block w-1.5 h-1.5 rounded-full ${
+                connected ? "bg-green-400" : "bg-red-400"
+              }`}
             ></span>
-            Room: {ROOM_ID}
-          </span>
+            Room: {roomId}
+            <span className="text-white/30">{copied ? "✓ copied" : "📋"}</span>
+          </button>
         </div>
 
         {/* Right — Controls */}
@@ -77,8 +120,15 @@ export default function App() {
           <select
             value={language}
             onChange={(e) => {
-              setLanguage(e.target.value);
-              setCode(DEFAULT_CODE[e.target.value]);
+              const newLang = e.target.value;
+              const newCode = DEFAULT_CODE[newLang];
+              setLanguage(newLang);
+              setCode(newCode);
+              socket?.emit("code:change", {
+                roomId,
+                code: newCode,
+                language: newLang,
+              });
             }}
             className="bg-[#1a1a1a] text-white text-sm px-3 py-1.5 rounded-md border border-white/10 focus:outline-none focus:border-green-500/50 cursor-pointer"
           >
@@ -95,12 +145,8 @@ export default function App() {
               setResult(null);
 
               try {
-                await submitCode({
-                  roomId: ROOM_ID,
-                  code,
-                  language,
-                });
-                // Result will arrive via WebSocket
+                await submitCode({ roomId, code, language });
+                // Result arrives via WebSocket
               } catch (err: any) {
                 setResult({
                   status: "error",
@@ -112,6 +158,12 @@ export default function App() {
                 setIsRunning(false);
               }
             }}
+            disabled={isRunning}
+            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${
+              isRunning
+                ? "bg-white/10 text-white/40 cursor-not-allowed"
+                : "bg-green-500 hover:bg-green-400 text-black"
+            }`}
           >
             {isRunning ? "⏳ Running..." : "▶ Run"}
           </button>
@@ -129,11 +181,21 @@ export default function App() {
                 ? "solution.py"
                 : "solution.js"}
           </div>
-          {/* Monaco Editor goes here next step */}
           <Editor
             code={code}
             language={language}
-            onChange={(value) => setCode(value || "")}
+            onChange={(value) => {
+              const newCode = value || "";
+              setCode(newCode);
+
+              // Don't re-emit if this change came from another user
+              if (isRemoteUpdate.current) {
+                isRemoteUpdate.current = false;
+                return;
+              }
+
+              socket?.emit("code:change", { roomId, code: newCode, language });
+            }}
           />
         </div>
 

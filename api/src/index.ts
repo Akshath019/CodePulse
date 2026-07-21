@@ -33,18 +33,23 @@ function isSupportedLanguage(language: string): language is SupportedLanguage {
 }
 
 // ─── Socket.io connection handler ────────────────────
-io.on('connection', (socket) => {
-  console.log(`[SOCKET] Connected: ${socket.id}`)
+io.on("connection", (socket) => {
+  console.log(`[SOCKET] Connected: ${socket.id}`);
 
-  socket.on('room:join', (roomId: string) => {
-    socket.join(roomId)
-    console.log(`[SOCKET] ${socket.id} joined room ${roomId}`)
-  })
+  socket.on("room:join", (roomId: string) => {
+    socket.join(roomId);
+    console.log(`[SOCKET] ${socket.id} joined room ${roomId}`);
+  });
 
-  socket.on('disconnect', () => {
-    console.log(`[SOCKET] Disconnected: ${socket.id}`)
-  })
-})
+  // Live code sync — broadcast to everyone else in the room
+  socket.on("code:change", ({ roomId, code, language }) => {
+    socket.to(roomId).emit("code:updated", { code, language });
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`[SOCKET] Disconnected: ${socket.id}`);
+  });
+});
 
 // Expose io globally so kafka.ts can emit results
 export { io }
