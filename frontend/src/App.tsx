@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useEffect } from "react";
+import { useSocket } from "./hooks/useSocket";
 import Editor from "./components/Editor";
 import OutputPanel from "./components/OutputPanel";
 import { submitCode } from "./lib/api";
@@ -29,6 +31,29 @@ export default function App() {
   const [code, setCode] = useState(DEFAULT_CODE["python"]);
   const [result, setResult] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const ROOM_ID = "local-dev-room";
+  const { socket, connected } = useSocket(ROOM_ID);
+
+  // Listen for execution results via WebSocket
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("execution:result", (data: any) => {
+      console.log("[SOCKET] Received result:", data);
+      setResult({
+        status: data.status,
+        stdout: data.stdout || "",
+        stderr: data.stderr || "",
+        exitCode: data.exitCode ?? 0,
+        durationMs: data.durationMs ?? 0,
+      });
+      setIsRunning(false);
+    });
+
+    return () => {
+      socket.off("execution:result");
+    };
+  }, [socket]);
 
   return (
     <div className="h-screen flex flex-col bg-[#0d0d0d] text-white">
@@ -39,8 +64,11 @@ export default function App() {
           <span className="text-green-400 font-bold text-xl tracking-tight">
             CodePulse
           </span>
-          <span className="text-xs text-white/30 bg-white/5 px-2 py-1 rounded font-mono">
-            Room: loading...
+          <span className="text-xs text-white/50 bg-white/5 px-2 py-1 rounded font-mono flex items-center gap-2">
+            <span
+              className={`inline-block w-1.5 h-1.5 rounded-full ${connected ? "bg-green-400" : "bg-red-400"}`}
+            ></span>
+            Room: {ROOM_ID}
           </span>
         </div>
 
@@ -67,12 +95,12 @@ export default function App() {
               setResult(null);
 
               try {
-                const data = await submitCode({
-                  roomId: "local-dev-room",
+                await submitCode({
+                  roomId: ROOM_ID,
                   code,
                   language,
                 });
-                setResult(data);
+                // Result will arrive via WebSocket
               } catch (err: any) {
                 setResult({
                   status: "error",
@@ -81,16 +109,9 @@ export default function App() {
                   exitCode: -1,
                   durationMs: 0,
                 });
-              } finally {
                 setIsRunning(false);
               }
             }}
-            disabled={isRunning}
-            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition-colors ${
-              isRunning
-                ? "bg-white/10 text-white/40 cursor-not-allowed"
-                : "bg-green-500 hover:bg-green-400 text-black"
-            }`}
           >
             {isRunning ? "⏳ Running..." : "▶ Run"}
           </button>
